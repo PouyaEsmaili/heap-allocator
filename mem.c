@@ -6,6 +6,7 @@
 
 typedef struct block_header_t {
     int size;
+    int actual_size;
     struct block_header_t *next;
     struct block_header_t *prev;
 } block_header_t;
@@ -34,6 +35,7 @@ int Mem_Init(int sizeOfRegion) {
     }
 
     free_list->size = sizeOfRegion - sizeof(block_header_t);
+    free_list->actual_size = sizeOfRegion;
     free_list->next = NULL;
     free_list->prev = NULL;
 
@@ -56,13 +58,18 @@ block_header_t *find_free_block(int size) {
 
 void split_block(block_header_t *block, int size) {
     if (block->size - size - sizeof(block_header_t) < 8) {
+        block->size = block->size;
         return;
     }
-    block_header_t *new_block = (block_header_t *)((void *)block + sizeof(block_header_t) + size);
+    block_header_t *new_block = (block_header_t *) ((void *) block + sizeof(block_header_t) + size);
     new_block->size = block->size - size - sizeof(block_header_t);
+    new_block->actual_size = block->actual_size - size - sizeof(block_header_t);
     new_block->next = block->next;
     new_block->prev = block;
     block->size = size;
+    if (size == 1)
+        printf("block size: %d\n", block->size);
+    block->actual_size = size + sizeof(block_header_t);
     block->next = new_block;
 }
 
@@ -98,13 +105,14 @@ void *Mem_Alloc(int size) {
     }
     split_block(block, size);
     assign_block(block);
-    return (void *)block + sizeof(block_header_t);
+    return (void *) block + sizeof(block_header_t);
 }
 
 block_header_t *find_block(void *ptr) {
     block_header_t *current = used_list;
     while (current != NULL) {
-        if (ptr >= (void *)current + sizeof(block_header_t) && ptr < (void *)current + sizeof(block_header_t) + current->size) {
+        if (ptr >= (void *) current + sizeof(block_header_t) &&
+            ptr < (void *) current + sizeof(block_header_t) + current->size) {
             return current;
         }
         current = current->next;
@@ -114,8 +122,27 @@ block_header_t *find_block(void *ptr) {
 
 void put_in_free_list(block_header_t *block) {
     block_header_t *current = free_list;
+    if (current == NULL) {
+        free_list = block;
+        block->next = NULL;
+        block->prev = NULL;
+        return;
+    }
     while (current != NULL) {
         if (block < current && (current->prev == NULL || block > current->prev)) {
+            if (block->prev == NULL && block->next == NULL) {
+                used_list = NULL;
+            } else {
+                if (block->prev != NULL) {
+                    block->prev->next = block->next;
+                } else {
+                    used_list = block->next;
+                }
+                if (block->next != NULL) {
+                    block->next->prev = block->prev;
+                }
+            }
+
             block->next = current;
             block->prev = current->prev;
             if (current->prev != NULL) {
@@ -133,8 +160,10 @@ void put_in_free_list(block_header_t *block) {
 void merge_blocks() {
     block_header_t *current = free_list;
     while (current != NULL) {
-        if (current->next != NULL && (void *)current + sizeof(block_header_t) + current->size == (void *)current->next) {
-            current->size += sizeof(block_header_t) + current->next->size;
+        if (current->next != NULL &&
+            (void *) current + current->actual_size == (void *) current->next) {
+            current->size = current->actual_size + current->next->actual_size - sizeof(block_header_t);
+            current->actual_size = current->size + sizeof(block_header_t);
             current->next = current->next->next;
             if (current->next != NULL) {
                 current->next->prev = current;
