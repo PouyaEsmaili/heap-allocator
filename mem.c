@@ -1,7 +1,7 @@
 #include "mem.h"
 #include <stdio.h>
 #include <sys/mman.h>
-#include <errno.h>
+#include <unistd.h>
 
 
 typedef struct block_header_t {
@@ -15,7 +15,13 @@ block_header_t *free_list = NULL;
 block_header_t *used_list = NULL;
 
 int round_up_size_of_region(int sizeOfRegion) {
-    return sizeOfRegion;
+    int page_size = getpagesize();
+    int remainder = sizeOfRegion % page_size;
+    if (remainder == 0) {
+        return sizeOfRegion;
+    } else {
+        return sizeOfRegion + page_size - remainder;
+    }
 }
 
 int Mem_Init(int sizeOfRegion) {
