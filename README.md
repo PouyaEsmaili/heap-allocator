@@ -9,7 +9,7 @@
   
   در این فایل 5 تابع اصلی و چند تابع کمکی پیاده‌سازی شده است. چهار تابع اصلی به شرح زیر است:
   
-  * mem_init()
+  * mem_init(int sizeOfRegion)
   * mem_alloc(int size)
   * mem_free(void* ptr)
   * mem_GetSize(void* ptr)
