@@ -73,8 +73,6 @@ void split_block(block_header_t *block, int size) {
     new_block->next = block->next;
     new_block->prev = block;
     block->size = size;
-    if (size == 1)
-        printf("block size: %d\n", block->size);
     block->actual_size = size + sizeof(block_header_t);
     block->next = new_block;
 }
